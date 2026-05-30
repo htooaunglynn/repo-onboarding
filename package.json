@@ -1,0 +1,23 @@
+{
+  "name": "repo-onboarding-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Understand any codebase in under 2 minutes — powered by HAL",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "onboard": "node cli/onboard-local.js"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "mermaid": "^11.2.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-next": "14.2.5"
+  }
+}

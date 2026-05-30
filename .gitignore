@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+/.next/
+/out/
+build/
+dist/
+
+# Bob working files
+.bob-work/
+onboarding-output/
+
+# Env
+.env
+.env*.local
+
+# Misc
+.DS_Store
+*.log
+npm-debug.log*
+.vercel
+*.tsbuildinfo

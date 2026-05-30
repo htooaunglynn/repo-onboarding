@@ -1,0 +1,104 @@
+# onboard-repo.recipe
+# BobShell recipe for Repo Onboarding Assistant
+# Run: bobshell run onboard-repo.recipe --repo <github-url>
+#
+# This recipe instructs HAL to analyze a repository and produce
+# a complete onboarding package. Each task is logged automatically
+# by BobShell for the session report.
+
+recipe:
+  name: "Repo Onboarding Assistant"
+  version: "1.0.0"
+  description: "Full repo analysis and onboarding pack generation"
+
+inputs:
+  - name: repo_url
+    description: "GitHub repository URL to onboard"
+    required: true
+
+tasks:
+
+  # ── TASK 1: Clone and scan ──────────────────────────────────────────────
+  - id: clone_and_scan
+    mode: architect
+    prompt: |
+      Clone the repository at {{ repo_url }} and perform a full context scan.
+      Identify and document:
+        1. The primary purpose of this codebase (one paragraph)
+        2. All top-level services, modules, or packages and their roles
+        3. The main entry points (e.g. index.js, main.py, App.java)
+        4. External dependencies and what they are used for
+        5. Data flow: how a typical request enters and exits the system
+        6. Any obvious security concerns (leaked secrets, deprecated libraries)
+      Output structured JSON matching the schema in /bob/schemas/scan-output.json
+
+  # ── TASK 2: Generate README ─────────────────────────────────────────────
+  - id: generate_readme
+    mode: code
+    depends_on: clone_and_scan
+    prompt: |
+      Using the scan results from task clone_and_scan, generate a production-quality
+      README.md for this repository. It must include:
+        - Project title and one-sentence description
+        - Prerequisites (language versions, tools, env vars required)
+        - Step-by-step installation and local setup instructions
+        - Usage guide with at least one code example
+        - Project structure (directory tree with descriptions)
+        - How to run tests
+        - Contribution guidelines (brief)
+      Write accurate, runnable instructions based on what you found in the codebase.
+      Do NOT invent steps — only document what is actually present.
+    output_file: "outputs/README.md"
+
+  # ── TASK 3: Architecture diagram ────────────────────────────────────────
+  - id: generate_architecture_diagram
+    mode: architect
+    depends_on: clone_and_scan
+    prompt: |
+      Using the scan results, generate a Mermaid diagram that shows:
+        - All major services/modules as nodes
+        - Data flow between them as directed arrows with labels
+        - External systems (databases, APIs, queues) clearly marked
+        - Entry points highlighted
+      Use the `graph TD` (top-down) Mermaid syntax.
+      The diagram must be accurate — only include what you found in the codebase.
+    output_file: "outputs/architecture.mmd"
+
+  # ── TASK 4: Plain-English summary ───────────────────────────────────────
+  - id: generate_summary
+    mode: architect
+    depends_on: clone_and_scan
+    prompt: |
+      Write a plain-English onboarding summary for a developer joining this project.
+      Structure it as:
+        1. "What this project does" (2-3 sentences, non-technical)
+        2. "How it works" (the main technical flow, explained simply)
+        3. "Where to start reading" (top 3-5 files, with one sentence each on why)
+        4. "Common tasks you'll do" (e.g. add a new API route, write a test)
+        5. "Gotchas and quirks" (anything non-obvious Bob noticed)
+      Tone: friendly, direct. As if a senior dev wrote a welcome note.
+    output_file: "outputs/onboarding-summary.md"
+
+  # ── TASK 5: Security scan summary ───────────────────────────────────────
+  - id: security_scan
+    mode: code
+    depends_on: clone_and_scan
+    prompt: |
+      Run an inline security scan (Semgrep) across the repository.
+      Report:
+        - Any hardcoded secrets or tokens
+        - Dependency vulnerabilities (cross-reference with known CVEs)
+        - Unsafe patterns (SQL injection risk, XSS, unvalidated input)
+        - Severity level for each finding (critical / high / medium / low)
+      If nothing is found, confirm the scan ran and output a clean bill of health.
+    output_file: "outputs/security-report.md"
+
+outputs:
+  - outputs/README.md
+  - outputs/architecture.mmd
+  - outputs/onboarding-summary.md
+  - outputs/security-report.md
+
+on_complete:
+  - export_bob_session_report: true
+  - report_path: "bob-session-report/session.json"
