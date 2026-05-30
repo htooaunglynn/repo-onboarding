@@ -29,9 +29,13 @@ function parseRepo(url) {
 
 export async function POST(request) {
   try {
-    const { url, token } = await request.json();
+    const { url, token, apiKey } = await request.json();
     const parsed = parseRepo(url || "");
     if (!parsed) return NextResponse.json({ error: "Invalid GitHub URL" }, { status: 400 });
+
+    if (!apiKey) {
+      return NextResponse.json({ error: "API key is required" }, { status: 400 });
+    }
 
     const { owner, repo } = parsed;
     const headers = { Accept: "application/vnd.github+json", "User-Agent": "repo-onboarding-assistant" };
@@ -76,7 +80,7 @@ export async function POST(request) {
       await execAsync(`bob shell run "${recipeFile}" --context "${contextFile}"`, { timeout: 120000 });
     } catch {
       usedFallback = true;
-      await runFallback(contextBundle, `${owner}/${repo}`, outputDir);
+      await runFallback(contextBundle, `${owner}/${repo}`, outputDir, apiKey);
     }
 
     const readSafe = async f => { try { return await readFile(path.join(outputDir, f), "utf8"); } catch { return null; } };
@@ -129,7 +133,7 @@ on_complete:
 `;
 }
 
-async function runFallback(contextBundle, repoName, outputDir) {
+async function runFallback(contextBundle, repoName, outputDir, apiKey) {
   const truncated = contextBundle.slice(0, 80000);
   const tasks = [
     { file: "onboarding-summary.md", prompt: `You are HAL. Write a plain-English onboarding summary for "${repoName}": 1) What it does 2) How it works 3) Top 5 files to read first 4) Common dev tasks 5) Gotchas.\n\n${truncated}` },
@@ -140,7 +144,7 @@ async function runFallback(contextBundle, repoName, outputDir) {
   for (const t of tasks) {
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json", "x-api-key": apiKey },
         body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: t.prompt }] }),
       });
       const data = await res.json();

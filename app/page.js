@@ -70,7 +70,6 @@ export default function Home() {
       if (ms.length) { setTaskIdx(ms[ms.length - 1].task); setStatus(ms[ms.length - 1].msg); }
     }, 145);
 
-    /* ── PRODUCTION WIRING (uncomment when Bob backend is ready) ──
     try {
       let data;
       if (source === "local") {
@@ -93,7 +92,6 @@ export default function Home() {
       setTimeout(() => setPhase("result"), 300);
       return;
     } catch (err) { clearInterval(iv); setErrMsg(err.message); setPhase("error"); return; }
-    ──────────────────────────────────────────────────────────── */
 
     // Demo fallback
     await new Promise(r => setTimeout(r, 5500));
@@ -105,6 +103,8 @@ export default function Home() {
   }, [repoName, dropped, ghUrl, apiKey]);
 
   const reset = () => { setPhase("landing"); setDropped([]); setRepoName(""); setGhUrl(""); setApiKey(""); setResult(null); setProgress(0); setTaskIdx(0); setErrMsg(""); };
+
+  const canAnalyze = apiKey.trim().length > 0;
 
   // ════════════════════════════════════════════════════════════════
   // LANDING / PREVIEW
@@ -137,13 +137,18 @@ export default function Home() {
       </div>
 
       {/* API Key Input */}
-      <div className="glass fade-up" style={{ width: "100%", maxWidth: 560, padding: "16px 20px", borderRadius: 14, marginBottom: 16, display: "flex", alignItems: "center", gap: 10, animationDelay: "0.17s" }}>
+      <div className="glass fade-up" style={{ width: "100%", maxWidth: 560, padding: "16px 20px", borderRadius: 14, marginBottom: !canAnalyze ? 2 : 16, display: "flex", alignItems: "center", gap: 10, animationDelay: "0.17s", borderColor: !canAnalyze ? "rgba(255,107,138,0.4)" : "rgba(255,255,255,0.12)" }}>
         <span style={{ fontSize: 16 }}>🔑</span>
         <input value={apiKey} onChange={e => setApiKey(e.target.value)}
-          placeholder="Paste your AI API key (optional)" className="mono"
+          placeholder="Paste your AI API key (required)" className="mono"
           type="password"
-          style={{ flex: 1, background: "transparent", border: "none", color: "#eef2ff", fontSize: 13, outline: "none", fontSize: 13 }} />
+          style={{ flex: 1, background: "transparent", border: "none", color: "#eef2ff", fontSize: 13, outline: "none" }} />
       </div>
+      {!canAnalyze && (
+        <div className="fade-up" style={{ width: "100%", maxWidth: 560, marginBottom: 16, padding: "8px 16px", borderRadius: 11, background: "rgba(255,107,138,0.1)", borderLeft: "2px solid #ff6b8a", fontSize: 12, color: "#ff9db3" }}>
+          API key required to analyze
+        </div>
+      )}
 
       <div className="fade-up" style={{ width: "100%", maxWidth: 560, animationDelay: "0.2s" }}>
         {/* LOCAL */}
@@ -177,7 +182,7 @@ export default function Home() {
             <FileTreeView paths={dropped.slice(0, 80).map(f => f.webkitRelativePath || f.name).filter(p => !shouldIgnore(p))} />
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
               <button onClick={reset} className="btn btn-glass" style={{ flex: 1, padding: "12px 0", fontSize: 14 }}>Cancel</button>
-              <button onClick={() => runAnalysis("local")} className="btn btn-primary" style={{ flex: 2, padding: "12px 0", fontSize: 14 }}>⚡ Run Bob Analysis →</button>
+              <button onClick={() => canAnalyze && runAnalysis("local")} disabled={!canAnalyze} className="btn btn-primary" style={{ flex: 2, padding: "12px 0", fontSize: 14, opacity: canAnalyze ? 1 : 0.5, cursor: canAnalyze ? "pointer" : "not-allowed" }}>⚡ Run Bob Analysis →</button>
             </div>
           </div>
         )}
@@ -187,15 +192,15 @@ export default function Home() {
           <>
             <div className="glass" style={{ display: "flex", gap: 8, padding: 6, borderRadius: 16, marginBottom: 14 }}>
               <input value={ghUrl} onChange={e => setGhUrl(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && ghUrl.trim() && runAnalysis("github", ghUrl.split("/").slice(-2).join("/"))}
+                onKeyDown={e => e.key === "Enter" && ghUrl.trim() && canAnalyze && runAnalysis("github", ghUrl.split("/").slice(-2).join("/"))}
                 placeholder="https://github.com/your-org/your-repo" className="mono"
                 style={{ flex: 1, background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 11, padding: "12px 16px", color: "#eef2ff", fontSize: 13, outline: "none" }} />
-              <button onClick={() => ghUrl.trim() && runAnalysis("github", ghUrl.split("/").slice(-2).join("/"))} className="btn btn-primary" style={{ padding: "12px 22px", fontSize: 14, whiteSpace: "nowrap" }}>Analyze →</button>
+              <button onClick={() => ghUrl.trim() && canAnalyze && runAnalysis("github", ghUrl.split("/").slice(-2).join("/"))} disabled={!canAnalyze} className="btn btn-primary" style={{ padding: "12px 22px", fontSize: 14, whiteSpace: "nowrap", opacity: canAnalyze ? 1 : 0.5, cursor: canAnalyze ? "pointer" : "not-allowed" }}>Analyze →</button>
             </div>
             <p className="mono" style={{ color: "#3a4566", fontSize: 12, marginBottom: 14, textAlign: "center" }}>or try a demo repo</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
               {["vercel/next.js", "facebook/react", "microsoft/vscode"].map(r => (
-                <button key={r} onClick={() => { setGhUrl(`https://github.com/${r}`); runAnalysis("github", r); }} className="btn btn-glass mono" style={{ padding: "8px 16px", fontSize: 12, borderRadius: 20 }}>{r}</button>
+                <button key={r} onClick={() => canAnalyze && (setGhUrl(`https://github.com/${r}`), runAnalysis("github", r))} disabled={!canAnalyze} className="btn btn-glass mono" style={{ padding: "8px 16px", fontSize: 12, borderRadius: 20, opacity: canAnalyze ? 1 : 0.5, cursor: canAnalyze ? "pointer" : "not-allowed" }}>{r}</button>
               ))}
             </div>
           </>

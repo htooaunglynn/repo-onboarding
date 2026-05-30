@@ -37,9 +37,14 @@ export async function POST(request) {
     const files = formData.getAll("files");       // File objects
     const paths = formData.getAll("paths");       // relative paths matching each file
     const repoName = formData.get("repoName") || "local-repo";
+    const apiKey = formData.get("apiKey");
 
     if (!files.length) {
       return NextResponse.json({ error: "No files received" }, { status: 400 });
+    }
+
+    if (!apiKey) {
+      return NextResponse.json({ error: "API key is required" }, { status: 400 });
     }
 
     // ── 1. Build work directory ──────────────────────────────────
@@ -219,7 +224,7 @@ async function runFallbackAnalysis(contextBundle, repoName, outputDir) {
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 1000,
