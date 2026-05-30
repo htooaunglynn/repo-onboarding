@@ -4,6 +4,24 @@ import { BOB_TASKS, shouldIgnore } from "../lib/utils";
 import { DEMO_RESULT } from "../lib/demoData";
 import { CodeBlock, FileTreeView, Mermaid, BobProgress } from "../components/ui";
 
+const StepIndicator = ({ current }) => (
+  <div className="fade-up" style={{ width: "100%", maxWidth: 600, marginBottom: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, animationDelay: "0.05s" }}>
+    {[
+      { num: 1, label: "API Key" },
+      { num: 2, label: "Repository" },
+      { num: 3, label: "Results" }
+    ].map((s, i) => (
+      <div key={s.num} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: "50%", background: current >= s.num ? "linear-gradient(135deg,#4d9fff,#38e8d4)" : "rgba(255,255,255,0.1)", color: current >= s.num ? "#04111f" : "#6b7699", fontSize: 13, fontWeight: 600 }}>
+          {current > s.num ? "✓" : s.num}
+        </div>
+        <span style={{ fontSize: 13, color: current >= s.num ? "#eef2ff" : "#6b7699", fontWeight: current === s.num ? 600 : 400 }}>{s.label}</span>
+        {i < 2 && <div style={{ width: 24, height: 1, background: current > s.num ? "#4d9fff" : "rgba(255,255,255,0.1)" }} />}
+      </div>
+    ))}
+  </div>
+);
+
 export default function Home() {
   const [phase, setPhase]       = useState("landing");   // landing | preview | analyzing | result | error
   const [step, setStep]         = useState(1);           // 1 | 2 (wizard steps within landing/preview)
@@ -24,10 +42,7 @@ export default function Home() {
 
   // ── API Key validation (debounced) ──────────────────────────────
   useEffect(() => {
-    if (!apiKey.trim()) {
-      setKeyStatus({ state: "idle" });
-      return;
-    }
+    if (!apiKey.trim()) return;
 
     const timer = setTimeout(async () => {
       setKeyStatus({ state: "validating" });
@@ -132,7 +147,7 @@ export default function Home() {
     await new Promise(r => setTimeout(r, 300));
     setResult({ ...DEMO_RESULT, repoName: rName, source });
     setPhase("result");
-  }, [repoName, dropped, ghUrl, apiKey]);
+  }, [repoName, dropped, ghUrl, apiKey, keyStatus.provider]);
 
   const reset = () => { setPhase("landing"); setStep(1); setDropped([]); setRepoName(""); setGhUrl(""); setApiKey(""); setKeyStatus({ state: "idle" }); setResult(null); setProgress(0); setTaskIdx(0); setErrMsg(""); };
 
@@ -142,24 +157,6 @@ export default function Home() {
   // LANDING / PREVIEW (Wizard Steps 1 & 2)
   // ════════════════════════════════════════════════════════════════
   if (phase === "landing" || phase === "preview") {
-    const StepIndicator = ({ current }) => (
-      <div className="fade-up" style={{ width: "100%", maxWidth: 600, marginBottom: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, animationDelay: "0.05s" }}>
-        {[
-          { num: 1, label: "API Key" },
-          { num: 2, label: "Repository" },
-          { num: 3, label: "Results" }
-        ].map((s, i) => (
-          <div key={s.num} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: "50%", background: current >= s.num ? "linear-gradient(135deg,#4d9fff,#38e8d4)" : "rgba(255,255,255,0.1)", color: current >= s.num ? "#04111f" : "#6b7699", fontSize: 13, fontWeight: 600 }}>
-              {current > s.num ? "✓" : s.num}
-            </div>
-            <span style={{ fontSize: 13, color: current >= s.num ? "#eef2ff" : "#6b7699", fontWeight: current === s.num ? 600 : 400 }}>{s.label}</span>
-            {i < 2 && <div style={{ width: 24, height: 1, background: current > s.num ? "#4d9fff" : "rgba(255,255,255,0.1)" }} />}
-          </div>
-        ))}
-      </div>
-    );
-
     // STEP 1: API KEY
     if (step === 1) return (
       <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "56px 24px 64px" }}>
@@ -182,7 +179,13 @@ export default function Home() {
         {/* API Key Input */}
         <div className="glass fade-up" style={{ width: "100%", maxWidth: 560, padding: "16px 20px", borderRadius: 14, marginBottom: keyStatus.state !== "idle" ? 8 : 20, display: "flex", alignItems: "center", gap: 10, animationDelay: "0.25s", borderColor: keyStatus.state === "valid" ? "rgba(44,232,168,0.3)" : keyStatus.state === "invalid" ? "rgba(255,107,138,0.3)" : "rgba(255,255,255,0.12)" }}>
           <span style={{ fontSize: 16 }}>🔑</span>
-          <input value={apiKey} onChange={e => setApiKey(e.target.value)}
+          <input value={apiKey} onChange={e => {
+            const val = e.target.value;
+            setApiKey(val);
+            if (!val.trim()) {
+              setKeyStatus({ state: "idle" });
+            }
+          }}
             placeholder="Paste your AI API key" className="mono"
             type="password"
             style={{ flex: 1, background: "transparent", border: "none", color: "#eef2ff", fontSize: 13, outline: "none" }} />
