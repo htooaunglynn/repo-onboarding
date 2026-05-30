@@ -6,6 +6,7 @@ import { CodeBlock, FileTreeView, Mermaid, BobProgress } from "../components/ui"
 
 export default function Home() {
   const [phase, setPhase]       = useState("landing");   // landing | preview | analyzing | result | error
+  const [step, setStep]         = useState(1);           // 1 | 2 (wizard steps within landing/preview)
   const [mode, setMode]         = useState("local");      // local | github
   const [ghUrl, setGhUrl]       = useState("");
   const [apiKey, setApiKey]     = useState("");
@@ -102,122 +103,156 @@ export default function Home() {
     setPhase("result");
   }, [repoName, dropped, ghUrl, apiKey]);
 
-  const reset = () => { setPhase("landing"); setDropped([]); setRepoName(""); setGhUrl(""); setApiKey(""); setResult(null); setProgress(0); setTaskIdx(0); setErrMsg(""); };
+  const reset = () => { setPhase("landing"); setStep(1); setDropped([]); setRepoName(""); setGhUrl(""); setApiKey(""); setResult(null); setProgress(0); setTaskIdx(0); setErrMsg(""); };
 
   const canAnalyze = apiKey.trim().length > 0;
 
   // ════════════════════════════════════════════════════════════════
-  // LANDING / PREVIEW
+  // LANDING / PREVIEW (Wizard Steps 1 & 2)
   // ════════════════════════════════════════════════════════════════
-  if (phase === "landing" || phase === "preview") return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "56px 24px 64px" }}>
-
-      {/* Bob badge */}
-      <div className="glass fade-up" style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 22, padding: "6px 15px", marginBottom: 32 }}>
-        <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4d9fff", boxShadow: "0 0 8px #4d9fff", animation: "pulse 2s infinite" }} />
-        <span className="mono" style={{ fontSize: 11, color: "#7dc4ff", fontWeight: 600, letterSpacing: "0.08em" }}>POWERED BY HAL</span>
-      </div>
-
-      <h1 className="display fade-up" style={{ fontSize: "clamp(32px,6vw,58px)", fontWeight: 800, textAlign: "center", lineHeight: 1.08, marginBottom: 16, letterSpacing: "-0.02em", animationDelay: "0.05s" }}>
-        Onboard any codebase<br />
-        <span className="gradient-text">in under 2 minutes.</span>
-      </h1>
-      <p className="fade-up" style={{ color: "#6b7699", fontSize: 16, textAlign: "center", maxWidth: 500, lineHeight: 1.65, marginBottom: 40, animationDelay: "0.1s" }}>
-        HAL reads your entire repo — GitHub or local — and generates a README, architecture diagram, and plain-English walkthrough. Private repos never leave your machine.
-      </p>
-
-      {/* Mode toggle */}
-      <div className="glass fade-up" style={{ display: "flex", borderRadius: 14, padding: 5, marginBottom: 26, gap: 4, animationDelay: "0.15s" }}>
-        {[["local", "📁  Local folder"], ["github", "🔗  GitHub URL"]].map(([m, l]) => (
-          <button key={m} onClick={() => { setMode(m); setPhase("landing"); }} className="btn"
-            style={{ padding: "10px 24px", borderRadius: 10, fontSize: 13.5, fontWeight: 600, background: mode === m ? "linear-gradient(135deg,#4d9fff,#38e8d4)" : "transparent", color: mode === m ? "#04111f" : "#6b7699", boxShadow: mode === m ? "0 4px 18px rgba(77,159,255,0.35)" : "none" }}>
-            {l}
-          </button>
+  if (phase === "landing" || phase === "preview") {
+    const StepIndicator = ({ current }) => (
+      <div className="fade-up" style={{ width: "100%", maxWidth: 600, marginBottom: 40, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, animationDelay: "0.05s" }}>
+        {[
+          { num: 1, label: "API Key" },
+          { num: 2, label: "Repository" },
+          { num: 3, label: "Results" }
+        ].map((s, i) => (
+          <div key={s.num} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: "50%", background: current >= s.num ? "linear-gradient(135deg,#4d9fff,#38e8d4)" : "rgba(255,255,255,0.1)", color: current >= s.num ? "#04111f" : "#6b7699", fontSize: 13, fontWeight: 600 }}>
+              {current > s.num ? "✓" : s.num}
+            </div>
+            <span style={{ fontSize: 13, color: current >= s.num ? "#eef2ff" : "#6b7699", fontWeight: current === s.num ? 600 : 400 }}>{s.label}</span>
+            {i < 2 && <div style={{ width: 24, height: 1, background: current > s.num ? "#4d9fff" : "rgba(255,255,255,0.1)" }} />}
+          </div>
         ))}
       </div>
+    );
 
-      {/* API Key Input */}
-      <div className="glass fade-up" style={{ width: "100%", maxWidth: 560, padding: "16px 20px", borderRadius: 14, marginBottom: !canAnalyze ? 2 : 16, display: "flex", alignItems: "center", gap: 10, animationDelay: "0.17s", borderColor: !canAnalyze ? "rgba(255,107,138,0.4)" : "rgba(255,255,255,0.12)" }}>
-        <span style={{ fontSize: 16 }}>🔑</span>
-        <input value={apiKey} onChange={e => setApiKey(e.target.value)}
-          placeholder="Paste your AI API key (required)" className="mono"
-          type="password"
-          style={{ flex: 1, background: "transparent", border: "none", color: "#eef2ff", fontSize: 13, outline: "none" }} />
-      </div>
-      {!canAnalyze && (
-        <div className="fade-up" style={{ width: "100%", maxWidth: 560, marginBottom: 16, padding: "8px 16px", borderRadius: 11, background: "rgba(255,107,138,0.1)", borderLeft: "2px solid #ff6b8a", fontSize: 12, color: "#ff9db3" }}>
-          API key required to analyze
+    // STEP 1: API KEY
+    if (step === 1) return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "56px 24px 64px" }}>
+        <StepIndicator current={1} />
+
+        {/* Bob badge */}
+        <div className="glass fade-up" style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 22, padding: "6px 15px", marginBottom: 32, animationDelay: "0.1s" }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4d9fff", boxShadow: "0 0 8px #4d9fff", animation: "pulse 2s infinite" }} />
+          <span className="mono" style={{ fontSize: 11, color: "#7dc4ff", fontWeight: 600, letterSpacing: "0.08em" }}>POWERED BY HAL</span>
         </div>
-      )}
 
-      <div className="fade-up" style={{ width: "100%", maxWidth: 560, animationDelay: "0.2s" }}>
-        {/* LOCAL */}
-        {mode === "local" && phase === "landing" && (
-          <>
-            <div onClick={() => folderRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)} onDrop={onDrop}
-              className="glass glass-hover"
-              style={{ padding: "48px 24px", textAlign: "center", cursor: "pointer", borderRadius: 26, borderStyle: "dashed", borderColor: dragOver ? "#4d9fff" : "rgba(255,255,255,0.16)", borderWidth: 2 }}>
-              <div style={{ fontSize: 40, marginBottom: 14 }}>📁</div>
-              <div className="display" style={{ fontWeight: 600, fontSize: 17, color: "#eef2ff", marginBottom: 6 }}>Drop your project folder here</div>
-              <div style={{ color: "#6b7699", fontSize: 14, marginBottom: 20 }}>Drag &amp; drop, or click to browse</div>
-              <span className="btn btn-primary" style={{ display: "inline-flex", padding: "10px 26px", fontSize: 13.5, borderRadius: 11 }}>Choose folder</span>
-            </div>
-            <input ref={folderRef} type="file" webkitdirectory="true" directory="true" multiple onChange={onFolderPick} style={{ display: "none" }} />
-            <div className="glass" style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 14, padding: "11px 16px", borderRadius: 12 }}>
-              <span style={{ fontSize: 15 }}>🔒</span>
-              <span style={{ color: "#6b7699", fontSize: 12.5 }}>Files never leave your machine — Bob runs entirely via local BobShell.</span>
-            </div>
-          </>
-        )}
+        <h1 className="display fade-up" style={{ fontSize: "clamp(32px,6vw,58px)", fontWeight: 800, textAlign: "center", lineHeight: 1.08, marginBottom: 16, letterSpacing: "-0.02em", animationDelay: "0.15s" }}>
+          Onboard any codebase<br />
+          <span className="gradient-text">in under 2 minutes.</span>
+        </h1>
+        <p className="fade-up" style={{ color: "#6b7699", fontSize: 16, textAlign: "center", maxWidth: 500, lineHeight: 1.65, marginBottom: 40, animationDelay: "0.2s" }}>
+          HAL reads your entire repo — GitHub or local — and generates a README, architecture diagram, and plain-English walkthrough. Private repos never leave your machine.
+        </p>
 
-        {/* PREVIEW */}
-        {mode === "local" && phase === "preview" && (
-          <div className="fade-up">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <span className="display" style={{ fontWeight: 600, fontSize: 17, color: "#eef2ff" }}>📁 {repoName}</span>
-              <span className="mono" style={{ fontSize: 12, color: "#6b7699" }}>{dropped.length} files</span>
-            </div>
-            <FileTreeView paths={dropped.slice(0, 80).map(f => f.webkitRelativePath || f.name).filter(p => !shouldIgnore(p))} />
-            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <button onClick={reset} className="btn btn-glass" style={{ flex: 1, padding: "12px 0", fontSize: 14 }}>Cancel</button>
-              <button onClick={() => canAnalyze && runAnalysis("local")} disabled={!canAnalyze} className="btn btn-primary" style={{ flex: 2, padding: "12px 0", fontSize: 14, opacity: canAnalyze ? 1 : 0.5, cursor: canAnalyze ? "pointer" : "not-allowed" }}>⚡ Run Bob Analysis →</button>
-            </div>
-          </div>
-        )}
+        {/* API Key Input */}
+        <div className="glass fade-up" style={{ width: "100%", maxWidth: 560, padding: "16px 20px", borderRadius: 14, marginBottom: 20, display: "flex", alignItems: "center", gap: 10, animationDelay: "0.25s" }}>
+          <span style={{ fontSize: 16 }}>🔑</span>
+          <input value={apiKey} onChange={e => setApiKey(e.target.value)}
+            placeholder="Paste your AI API key" className="mono"
+            type="password"
+            style={{ flex: 1, background: "transparent", border: "none", color: "#eef2ff", fontSize: 13, outline: "none" }} />
+        </div>
 
-        {/* GITHUB */}
-        {mode === "github" && (
-          <>
-            <div className="glass" style={{ display: "flex", gap: 8, padding: 6, borderRadius: 16, marginBottom: 14 }}>
-              <input value={ghUrl} onChange={e => setGhUrl(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && ghUrl.trim() && canAnalyze && runAnalysis("github", ghUrl.split("/").slice(-2).join("/"))}
-                placeholder="https://github.com/your-org/your-repo" className="mono"
-                style={{ flex: 1, background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 11, padding: "12px 16px", color: "#eef2ff", fontSize: 13, outline: "none" }} />
-              <button onClick={() => ghUrl.trim() && canAnalyze && runAnalysis("github", ghUrl.split("/").slice(-2).join("/"))} disabled={!canAnalyze} className="btn btn-primary" style={{ padding: "12px 22px", fontSize: 14, whiteSpace: "nowrap", opacity: canAnalyze ? 1 : 0.5, cursor: canAnalyze ? "pointer" : "not-allowed" }}>Analyze →</button>
+        {/* Next Button */}
+        <button onClick={() => setStep(2)} disabled={!canAnalyze} className="fade-up btn btn-primary" style={{ padding: "11px 32px", fontSize: 14, borderRadius: 12, opacity: canAnalyze ? 1 : 0.5, cursor: canAnalyze ? "pointer" : "not-allowed", animationDelay: "0.3s" }}>
+          Next →
+        </button>
+
+        {/* Stats */}
+        <div className="fade-up" style={{ display: "flex", gap: 44, marginTop: 60, animationDelay: "0.35s" }}>
+          {[["3 days", "→ 30 min"], ["5 tasks", "Bob runs auto"], ["100%", "docs on demand"]].map(([n, l]) => (
+            <div key={n} style={{ textAlign: "center" }}>
+              <div className="display gradient-text" style={{ fontSize: 24, fontWeight: 700 }}>{n}</div>
+              <div style={{ fontSize: 12, color: "#3a4566", marginTop: 3 }}>{l}</div>
             </div>
-            <p className="mono" style={{ color: "#3a4566", fontSize: 12, marginBottom: 14, textAlign: "center" }}>or try a demo repo</p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-              {["vercel/next.js", "facebook/react", "microsoft/vscode"].map(r => (
-                <button key={r} onClick={() => canAnalyze && (setGhUrl(`https://github.com/${r}`), runAnalysis("github", r))} disabled={!canAnalyze} className="btn btn-glass mono" style={{ padding: "8px 16px", fontSize: 12, borderRadius: 20, opacity: canAnalyze ? 1 : 0.5, cursor: canAnalyze ? "pointer" : "not-allowed" }}>{r}</button>
-              ))}
-            </div>
-          </>
-        )}
+          ))}
+        </div>
       </div>
+    );
 
-      {/* Stats */}
-      <div className="fade-up" style={{ display: "flex", gap: 44, marginTop: 60, animationDelay: "0.3s" }}>
-        {[["3 days", "→ 30 min"], ["5 tasks", "Bob runs auto"], ["100%", "docs on demand"]].map(([n, l]) => (
-          <div key={n} style={{ textAlign: "center" }}>
-            <div className="display gradient-text" style={{ fontSize: 24, fontWeight: 700 }}>{n}</div>
-            <div style={{ fontSize: 12, color: "#3a4566", marginTop: 3 }}>{l}</div>
-          </div>
-        ))}
+    // STEP 2: REPOSITORY SELECTION
+    if (step === 2) return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", padding: "56px 24px 64px" }}>
+        <StepIndicator current={2} />
+
+        {/* Back button */}
+        <button onClick={() => setStep(1)} className="fade-up" style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#6b7699", fontSize: 14, cursor: "pointer", marginBottom: 30, padding: 0, animationDelay: "0.1s" }}>
+          ← Back to Step 1
+        </button>
+
+        {/* Mode toggle */}
+        <div className="glass fade-up" style={{ display: "flex", borderRadius: 14, padding: 5, marginBottom: 26, gap: 4, animationDelay: "0.15s" }}>
+          {[["local", "📁  Local folder"], ["github", "🔗  GitHub URL"]].map(([m, l]) => (
+            <button key={m} onClick={() => { setMode(m); setPhase("landing"); setDropped([]); setRepoName(""); setGhUrl(""); }} className="btn"
+              style={{ padding: "10px 24px", borderRadius: 10, fontSize: 13.5, fontWeight: 600, background: mode === m ? "linear-gradient(135deg,#4d9fff,#38e8d4)" : "transparent", color: mode === m ? "#04111f" : "#6b7699", boxShadow: mode === m ? "0 4px 18px rgba(77,159,255,0.35)" : "none" }}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        <div className="fade-up" style={{ width: "100%", maxWidth: 560, animationDelay: "0.2s" }}>
+          {/* LOCAL */}
+          {mode === "local" && phase === "landing" && (
+            <>
+              <div onClick={() => folderRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)} onDrop={onDrop}
+                className="glass glass-hover"
+                style={{ padding: "48px 24px", textAlign: "center", cursor: "pointer", borderRadius: 26, borderStyle: "dashed", borderColor: dragOver ? "#4d9fff" : "rgba(255,255,255,0.16)", borderWidth: 2 }}>
+                <div style={{ fontSize: 40, marginBottom: 14 }}>📁</div>
+                <div className="display" style={{ fontWeight: 600, fontSize: 17, color: "#eef2ff", marginBottom: 6 }}>Drop your project folder here</div>
+                <div style={{ color: "#6b7699", fontSize: 14, marginBottom: 20 }}>Drag &amp; drop, or click to browse</div>
+                <span className="btn btn-primary" style={{ display: "inline-flex", padding: "10px 26px", fontSize: 13.5, borderRadius: 11 }}>Choose folder</span>
+              </div>
+              <input ref={folderRef} type="file" webkitdirectory="true" directory="true" multiple onChange={onFolderPick} style={{ display: "none" }} />
+              <div className="glass" style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 14, padding: "11px 16px", borderRadius: 12 }}>
+                <span style={{ fontSize: 15 }}>🔒</span>
+                <span style={{ color: "#6b7699", fontSize: 12.5 }}>Files never leave your machine — Bob runs entirely via local BobShell.</span>
+              </div>
+            </>
+          )}
+
+          {/* PREVIEW */}
+          {mode === "local" && phase === "preview" && (
+            <div className="fade-up">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <span className="display" style={{ fontWeight: 600, fontSize: 17, color: "#eef2ff" }}>📁 {repoName}</span>
+                <span className="mono" style={{ fontSize: 12, color: "#6b7699" }}>{dropped.length} files</span>
+              </div>
+              <FileTreeView paths={dropped.slice(0, 80).map(f => f.webkitRelativePath || f.name).filter(p => !shouldIgnore(p))} />
+              <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                <button onClick={() => { setStep(1); setMode("local"); setDropped([]); setPhase("landing"); }} className="btn btn-glass" style={{ flex: 1, padding: "12px 0", fontSize: 14 }}>← Back</button>
+                <button onClick={() => runAnalysis("local")} className="btn btn-primary" style={{ flex: 2, padding: "12px 0", fontSize: 14 }}>⚡ Run Bob Analysis →</button>
+              </div>
+            </div>
+          )}
+
+          {/* GITHUB */}
+          {mode === "github" && (
+            <>
+              <div className="glass" style={{ display: "flex", gap: 8, padding: 6, borderRadius: 16, marginBottom: 14 }}>
+                <input value={ghUrl} onChange={e => setGhUrl(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && ghUrl.trim() && runAnalysis("github", ghUrl.split("/").slice(-2).join("/"))}
+                  placeholder="https://github.com/your-org/your-repo" className="mono"
+                  style={{ flex: 1, background: "transparent", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 11, padding: "12px 16px", color: "#eef2ff", fontSize: 13, outline: "none" }} />
+                <button onClick={() => ghUrl.trim() && runAnalysis("github", ghUrl.split("/").slice(-2).join("/"))} className="btn btn-primary" style={{ padding: "12px 22px", fontSize: 14, whiteSpace: "nowrap" }}>Analyze →</button>
+              </div>
+              <p className="mono" style={{ color: "#3a4566", fontSize: 12, marginBottom: 14, textAlign: "center" }}>or try a demo repo</p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                {["vercel/next.js", "facebook/react", "microsoft/vscode"].map(r => (
+                  <button key={r} onClick={() => { setGhUrl(`https://github.com/${r}`); runAnalysis("github", r); }} className="btn btn-glass mono" style={{ padding: "8px 16px", fontSize: 12, borderRadius: 20 }}>{r}</button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   // ════════════════════════════════════════════════════════════════
   // ANALYZING
