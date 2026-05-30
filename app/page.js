@@ -8,6 +8,7 @@ export default function Home() {
   const [phase, setPhase]       = useState("landing");   // landing | preview | analyzing | result | error
   const [mode, setMode]         = useState("local");      // local | github
   const [ghUrl, setGhUrl]       = useState("");
+  const [apiKey, setApiKey]     = useState("");
   const [dropped, setDropped]   = useState([]);
   const [repoName, setRepoName] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -75,6 +76,7 @@ export default function Home() {
       if (source === "local") {
         const fd = new FormData();
         fd.append("repoName", rName);
+        fd.append("apiKey", apiKey);
         dropped.filter(f => !shouldIgnore(f.webkitRelativePath || f.name)).forEach(f => {
           fd.append("files", f); fd.append("paths", f.webkitRelativePath || f.name);
         });
@@ -82,7 +84,7 @@ export default function Home() {
       } else {
         data = await (await fetch("/api/onboard-github", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: ghUrl }),
+          body: JSON.stringify({ url: ghUrl, apiKey: apiKey }),
         })).json();
       }
       clearInterval(iv);
@@ -100,9 +102,9 @@ export default function Home() {
     await new Promise(r => setTimeout(r, 300));
     setResult({ ...DEMO_RESULT, repoName: rName, source });
     setPhase("result");
-  }, [repoName, dropped, ghUrl]);
+  }, [repoName, dropped, ghUrl, apiKey]);
 
-  const reset = () => { setPhase("landing"); setDropped([]); setRepoName(""); setGhUrl(""); setResult(null); setProgress(0); setTaskIdx(0); setErrMsg(""); };
+  const reset = () => { setPhase("landing"); setDropped([]); setRepoName(""); setGhUrl(""); setApiKey(""); setResult(null); setProgress(0); setTaskIdx(0); setErrMsg(""); };
 
   // ════════════════════════════════════════════════════════════════
   // LANDING / PREVIEW
@@ -132,6 +134,15 @@ export default function Home() {
             {l}
           </button>
         ))}
+      </div>
+
+      {/* API Key Input */}
+      <div className="glass fade-up" style={{ width: "100%", maxWidth: 560, padding: "16px 20px", borderRadius: 14, marginBottom: 16, display: "flex", alignItems: "center", gap: 10, animationDelay: "0.17s" }}>
+        <span style={{ fontSize: 16 }}>🔑</span>
+        <input value={apiKey} onChange={e => setApiKey(e.target.value)}
+          placeholder="Paste your AI API key (optional)" className="mono"
+          type="password"
+          style={{ flex: 1, background: "transparent", border: "none", color: "#eef2ff", fontSize: 13, outline: "none", fontSize: 13 }} />
       </div>
 
       <div className="fade-up" style={{ width: "100%", maxWidth: 560, animationDelay: "0.2s" }}>
