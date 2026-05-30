@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { BOB_TASKS, shouldIgnore } from "../lib/utils";
 import { DEMO_RESULT } from "../lib/demoData";
 import { CodeBlock, FileTreeView, Mermaid, BobProgress } from "../components/ui";
@@ -10,6 +10,7 @@ export default function Home() {
   const [mode, setMode]         = useState("local");      // local | github
   const [ghUrl, setGhUrl]       = useState("");
   const [apiKey, setApiKey]     = useState("");
+  const [keyStatus, setKeyStatus] = useState({ state: "idle" }); // idle | validating | valid | invalid
   const [dropped, setDropped]   = useState([]);
   const [repoName, setRepoName] = useState("");
   const [dragOver, setDragOver] = useState(false);
@@ -20,6 +21,35 @@ export default function Home() {
   const [tab, setTab]           = useState("Summary");
   const [errMsg, setErrMsg]     = useState("");
   const folderRef = useRef(null);
+
+  // ── API Key validation (debounced) ──────────────────────────────
+  useEffect(() => {
+    if (!apiKey.trim()) {
+      setKeyStatus({ state: "idle" });
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setKeyStatus({ state: "validating" });
+      try {
+        const res = await fetch("/api/validate-key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey: apiKey.trim() }),
+        });
+        const data = await res.json();
+        if (data.valid) {
+          setKeyStatus({ state: "valid", provider: data.provider, model: data.model });
+        } else {
+          setKeyStatus({ state: "invalid", error: data.error || "Invalid API key" });
+        }
+      } catch (err) {
+        setKeyStatus({ state: "invalid", error: "Failed to validate" });
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [apiKey]);
 
   // ── Folder picker ──────────────────────────────────────────────
   const onFolderPick = useCallback(e => {
@@ -77,6 +107,7 @@ export default function Home() {
         const fd = new FormData();
         fd.append("repoName", rName);
         fd.append("apiKey", apiKey);
+        fd.append("provider", keyStatus.provider);
         dropped.filter(f => !shouldIgnore(f.webkitRelativePath || f.name)).forEach(f => {
           fd.append("files", f); fd.append("paths", f.webkitRelativePath || f.name);
         });
@@ -84,7 +115,7 @@ export default function Home() {
       } else {
         data = await (await fetch("/api/onboard-github", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: ghUrl, apiKey: apiKey }),
+          body: JSON.stringify({ url: ghUrl, apiKey: apiKey, provider: keyStatus.provider }),
         })).json();
       }
       clearInterval(iv);
@@ -103,9 +134,9 @@ export default function Home() {
     setPhase("result");
   }, [repoName, dropped, ghUrl, apiKey]);
 
-  const reset = () => { setPhase("landing"); setStep(1); setDropped([]); setRepoName(""); setGhUrl(""); setApiKey(""); setResult(null); setProgress(0); setTaskIdx(0); setErrMsg(""); };
+  const reset = () => { setPhase("landing"); setStep(1); setDropped([]); setRepoName(""); setGhUrl(""); setApiKey(""); setKeyStatus({ state: "idle" }); setResult(null); setProgress(0); setTaskIdx(0); setErrMsg(""); };
 
-  const canAnalyze = apiKey.trim().length > 0;
+  const canAnalyze = keyStatus.state === "valid";
 
   // ════════════════════════════════════════════════════════════════
   // LANDING / PREVIEW (Wizard Steps 1 & 2)
@@ -149,13 +180,29 @@ export default function Home() {
         </p>
 
         {/* API Key Input */}
-        <div className="glass fade-up" style={{ width: "100%", maxWidth: 560, padding: "16px 20px", borderRadius: 14, marginBottom: 20, display: "flex", alignItems: "center", gap: 10, animationDelay: "0.25s" }}>
+        <div className="glass fade-up" style={{ width: "100%", maxWidth: 560, padding: "16px 20px", borderRadius: 14, marginBottom: keyStatus.state !== "idle" ? 8 : 20, display: "flex", alignItems: "center", gap: 10, animationDelay: "0.25s", borderColor: keyStatus.state === "valid" ? "rgba(44,232,168,0.3)" : keyStatus.state === "invalid" ? "rgba(255,107,138,0.3)" : "rgba(255,255,255,0.12)" }}>
           <span style={{ fontSize: 16 }}>🔑</span>
           <input value={apiKey} onChange={e => setApiKey(e.target.value)}
             placeholder="Paste your AI API key" className="mono"
             type="password"
             style={{ flex: 1, background: "transparent", border: "none", color: "#eef2ff", fontSize: 13, outline: "none" }} />
+          {keyStatus.state === "validating" && (
+            <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid #4d9fff", borderTopColor: "transparent", animation: "spin 0.6s linear infinite" }} />
+          )}
         </div>
+
+        {/* Validation Status */}
+        {keyStatus.state === "valid" && (
+          <div className="fade-up" style={{ width: "100%", maxWidth: 560, marginBottom: 20, padding: "8px 16px", borderRadius: 8, background: "rgba(44,232,168,0.1)", border: "1px solid rgba(44,232,168,0.3)", display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#2ce8a8", animationDelay: "0.28s" }}>
+            <span>✓</span>
+            <span>{keyStatus.provider === "anthropic" ? "Anthropic" : keyStatus.provider === "openai" ? "OpenAI" : "Google"} · {keyStatus.model}</span>
+          </div>
+        )}
+        {keyStatus.state === "invalid" && (
+          <div className="fade-up" style={{ width: "100%", maxWidth: 560, marginBottom: 20, padding: "8px 16px", borderRadius: 8, background: "rgba(255,107,138,0.1)", border: "1px solid rgba(255,107,138,0.3)", fontSize: 12, color: "#ff9db3", animationDelay: "0.28s" }}>
+            ✗ {keyStatus.error || "Invalid API key"}
+          </div>
+        )}
 
         {/* Next Button */}
         <button onClick={() => setStep(2)} disabled={!canAnalyze} className="fade-up btn btn-primary" style={{ padding: "11px 32px", fontSize: 14, borderRadius: 12, opacity: canAnalyze ? 1 : 0.5, cursor: canAnalyze ? "pointer" : "not-allowed", animationDelay: "0.3s" }}>

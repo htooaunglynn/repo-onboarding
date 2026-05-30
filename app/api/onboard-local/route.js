@@ -31,6 +31,35 @@ function shouldIgnore(filePath) {
   return IGNORE_PATTERNS.some(p => filePath.includes(`/${p}/`) || filePath.startsWith(`${p}/`));
 }
 
+async function callAI(provider, apiKey, prompt) {
+  if (provider === "openai") {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: "gpt-4o", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
+    });
+    const d = await res.json();
+    return d.choices?.[0]?.message?.content || "";
+  }
+  if (provider === "google") {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+    const d = await res.json();
+    return d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  }
+  // default: anthropic
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
+  });
+  const d = await res.json();
+  return d.content?.map(c => c.text || "").join("") || "";
+}
+
 export async function POST(request) {
   try {
     const formData = await request.formData();
@@ -38,6 +67,7 @@ export async function POST(request) {
     const paths = formData.getAll("paths");       // relative paths matching each file
     const repoName = formData.get("repoName") || "local-repo";
     const apiKey = formData.get("apiKey");
+    const provider = formData.get("provider") || "anthropic";
 
     if (!files.length) {
       return NextResponse.json({ error: "No files received" }, { status: 400 });
@@ -222,17 +252,7 @@ async function runFallbackAnalysis(contextBundle, repoName, outputDir) {
   for (const task of tasks) {
     const start = Date.now();
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{ role: "user", content: task.prompt }],
-        }),
-      });
-      const data = await res.json();
-      const text = data.content?.map(c => c.text || "").join("") || "";
+      const text = await callAI(provider, apiKey, task.prompt);
       await writeFile(path.join(outputDir, task.file), text, "utf8");
       sessionTasks.push({ id: task.id, status: "done", timeMs: Date.now() - start });
     } catch (err) {

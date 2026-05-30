@@ -21,6 +21,35 @@ const execAsync = promisify(exec);
 const MAX_FILE_KB = 200;
 const IGNORE = ["node_modules", ".git", ".next", "dist", "build", "__pycache__"];
 
+async function callAI(provider, apiKey, prompt) {
+  if (provider === "openai") {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: "gpt-4o", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
+    });
+    const d = await res.json();
+    return d.choices?.[0]?.message?.content || "";
+  }
+  if (provider === "google") {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+    const d = await res.json();
+    return d.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  }
+  // default: anthropic
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: prompt }] }),
+  });
+  const d = await res.json();
+  return d.content?.map(c => c.text || "").join("") || "";
+}
+
 function parseRepo(url) {
   const m = url.match(/github\.com\/([^/]+)\/([^/]+?)(?:\.git|\/|$)/);
   if (!m) return null;
@@ -29,7 +58,7 @@ function parseRepo(url) {
 
 export async function POST(request) {
   try {
-    const { url, token, apiKey } = await request.json();
+    const { url, token, apiKey, provider } = await request.json();
     const parsed = parseRepo(url || "");
     if (!parsed) return NextResponse.json({ error: "Invalid GitHub URL" }, { status: 400 });
 
@@ -80,7 +109,7 @@ export async function POST(request) {
       await execAsync(`bob shell run "${recipeFile}" --context "${contextFile}"`, { timeout: 120000 });
     } catch {
       usedFallback = true;
-      await runFallback(contextBundle, `${owner}/${repo}`, outputDir, apiKey);
+      await runFallback(contextBundle, `${owner}/${repo}`, outputDir, apiKey, provider || "anthropic");
     }
 
     const readSafe = async f => { try { return await readFile(path.join(outputDir, f), "utf8"); } catch { return null; } };
@@ -133,7 +162,7 @@ on_complete:
 `;
 }
 
-async function runFallback(contextBundle, repoName, outputDir, apiKey) {
+async function runFallback(contextBundle, repoName, outputDir, apiKey, provider) {
   const truncated = contextBundle.slice(0, 80000);
   const tasks = [
     { file: "onboarding-summary.md", prompt: `You are HAL. Write a plain-English onboarding summary for "${repoName}": 1) What it does 2) How it works 3) Top 5 files to read first 4) Common dev tasks 5) Gotchas.\n\n${truncated}` },
@@ -143,14 +172,9 @@ async function runFallback(contextBundle, repoName, outputDir, apiKey) {
   ];
   for (const t of tasks) {
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1000, messages: [{ role: "user", content: t.prompt }] }),
-      });
-      const data = await res.json();
-      const text = data.content?.map(c => c.text || "").join("") || "";
+      const text = await callAI(provider, apiKey, t.prompt);
       await writeFile(path.join(outputDir, t.file), text, "utf8");
     } catch { /* skip */ }
   }
-  await writeFile(path.join(outputDir, "bob-session-report.json"), JSON.stringify({ session: "bob-github-fallback", repo: repoName, mode: "anthropic-api-fallback" }, null, 2), "utf8");
+  await writeFile(path.join(outputDir, "bob-session-report.json"), JSON.stringify({ session: "bob-github-fallback", repo: repoName, mode: `${provider}-api-fallback` }, null, 2), "utf8");
 }
