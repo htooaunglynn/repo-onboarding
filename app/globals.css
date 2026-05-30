@@ -3,8 +3,6 @@
    Frosted glass surfaces · aurora light · refractive depth
    ═══════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 :root {
   /* Palette — deep ocean glass */
   --bg-0:        #060912;
@@ -31,10 +29,10 @@
   --glass-shadow:    0 8px 32px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255,255,255,0.14);
   --glass-shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.18);
 
-  /* Type */
-  --font-display: 'Syne', sans-serif;
-  --font-body:    'DM Sans', sans-serif;
-  --font-mono:    'JetBrains Mono', monospace;
+  /* Type — Apple San Francisco */
+  --font-display: -apple-system, BlinkMacSystemFont, 'San Francisco', 'Segoe UI', system-ui, sans-serif;
+  --font-body:    -apple-system, BlinkMacSystemFont, 'San Francisco', 'Segoe UI', system-ui, sans-serif;
+  --font-mono:    'Menlo', 'Monaco', 'Courier New', monospace;
 
   /* Radius */
   --r-sm: 12px;

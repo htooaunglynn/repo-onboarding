@@ -113,7 +113,7 @@ export default function Home() {
       {/* Bob badge */}
       <div className="glass fade-up" style={{ display: "flex", alignItems: "center", gap: 8, borderRadius: 22, padding: "6px 15px", marginBottom: 32 }}>
         <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4d9fff", boxShadow: "0 0 8px #4d9fff", animation: "pulse 2s infinite" }} />
-        <span className="mono" style={{ fontSize: 11, color: "#7dc4ff", fontWeight: 600, letterSpacing: "0.08em" }}>POWERED BY IBM BOB</span>
+        <span className="mono" style={{ fontSize: 11, color: "#7dc4ff", fontWeight: 600, letterSpacing: "0.08em" }}>POWERED BY HAL</span>
       </div>
 
       <h1 className="display fade-up" style={{ fontSize: "clamp(32px,6vw,58px)", fontWeight: 800, textAlign: "center", lineHeight: 1.08, marginBottom: 16, letterSpacing: "-0.02em", animationDelay: "0.05s" }}>
@@ -266,7 +266,7 @@ export default function Home() {
         {tab === "Summary" && (
           <div className="fade-up">
             <div className="glass" style={{ padding: "24px 26px", borderRadius: 18, marginBottom: 16 }}>
-              <div className="mono" style={{ fontSize: 10.5, color: "#4d9fff", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 14 }}>ONBOARDING SUMMARY — IBM BOB</div>
+              <div className="mono" style={{ fontSize: 10.5, color: "#4d9fff", letterSpacing: "0.1em", fontWeight: 600, marginBottom: 14 }}>ONBOARDING SUMMARY — HAL</div>
               <pre style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "#b8c2e0", lineHeight: 1.8, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{out.summary}</pre>
             </div>
             {result.fileTree?.length > 0 && (
